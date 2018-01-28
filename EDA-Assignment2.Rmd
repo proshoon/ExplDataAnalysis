@@ -1,0 +1,117 @@
+---
+title: "EDA-Project2"
+author: "Proshoon"
+date: "January 27, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exploratory Data Analysis -- Assignment 2
+
+Fine particulate matter (PM2.5) is an ambient air pollutant for which there is strong evidence that it is harmful to human health. In the United States, the Environmental Protection Agency (EPA) is tasked with setting national ambient air quality standards for fine PM and for tracking the emissions of this pollutant into the atmosphere. Approximatly every 3 years, the EPA releases its database on emissions of PM2.5. This database is known as the National Emissions Inventory (NEI). You can read more information about the NEI at the EPA National Emissions Inventory web site.
+
+For each year and for each type of PM source, the NEI records how many tons of PM2.5 were emitted from that source over the course of the entire year. The data that you will use for this assignment are for 1999, 2002, 2005, and 2008.
+
+## Download data from web and unzip locally
+
+```{r data}
+download.file("https://d396qusza40orc.cloudfront.net/exdata%2Fdata%2FNEI_data.zip", "NEI_data.zip")
+unzip("NEI_data.zip", exdir=".", overwrite=TRUE)
+```
+
+## Load data from files
+
+```{r read-data}
+NEI <- readRDS("summarySCC_PM25.rds")
+SCC <- readRDS("Source_Classification_Code.rds")
+```
+
+Assignment
+The overall goal of this assignment is to explore the National Emissions Inventory database and see what it say about fine particulate matter pollution in the United states over the 10-year period 1999-2008. You may use any R package you want to support your analysis.
+
+Questions
+You must address the following questions and tasks in your exploratory analysis. For each question/task you will need to make a single plot. Unless specified, you can use any plotting system in R to make your plot.
+
+Have total emissions from PM2.5 decreased in the United States from 1999 to 2008? Using the base plotting system, make a plot showing the total PM2.5 emission from all sources for each of the years 1999, 2002, 2005, and 2008.
+
+```{r}
+#yearEmissions <- tapply(NEI$Emissions, NEI$year, FUN=sum)
+yearEmissions <- aggregate(Emissions ~ year, NEI, sum)
+png('plot1.png')
+barplot(height=yearEmissions$Emissions, names.arg=yearEmissions$year, xlab="Year", ylab=expression('Total Emission'),main=expression('Total Emissions in Different Years'))
+dev.off()
+```
+Have total emissions from PM2.5 decreased in the Baltimore City, Maryland () from 1999 to 2008? Use the base plotting system to make a plot answering this question.
+```{r}
+balNEI <- NEI[NEI$fips=="24510", ]
+yearEmissions <- aggregate(Emissions ~ year, balNEI, sum)
+png('plot2.png')
+barplot(height=yearEmissions$Emissions, names.arg=yearEmissions$year, xlab="Year", ylab=expression('Total Emission'),main=expression('Total Emissions in Baltimore City in Different Years'))
+dev.off()
+```
+Of the four types of sources indicated by the  (point, nonpoint, onroad, nonroad) variable, which of these four sources have seen decreases in emissions from 1999-2008 for Baltimore City? Which have seen increases in emissions from 1999-2008? Use the ggplot2 plotting system to make a plot answer this question.
+```{r}
+balNEI <- NEI[NEI$fips=="24510", ]
+yearTypeEmissions <- aggregate(Emissions ~ year + type, balNEI, sum)
+png("plot3.png")
+g <- ggplot(yearTypeEmissions, aes(year, Emissions, color = type))
+g <- g + geom_line() +
+  xlab("Year") +
+  ylab(expression('Total Emission')) +
+  ggtitle('Total Emission in Baltimore, 1999 to 2008')
+print(g)
+dev.off()
+```
+Across the United States, how have emissions from coal combustion-related sources changed from 1999-2008?
+```{r}
+NEISCC <- merge(NEI, SCC, by="SCC")
+allCoal  <- grepl("coal", NEISCC$Short.Name, ignore.case=TRUE)
+coalNEISCC <- NEISCC[allCoal, ]
+
+yearEmissions <- aggregate(Emissions ~ year, coalNEISCC, sum)
+
+png("plot4.png")
+g <- ggplot(yearEmissions, aes(factor(year), Emissions))
+g <- g + geom_bar(stat="identity") +
+  xlab("year") +
+  ylab(expression('Total Emission')) +
+  ggtitle('Total Emission from Coal sources, from 1999 to 2008')
+print(g)
+dev.off()
+```
+How have emissions from motor vehicle sources changed from 1999-2008 in Baltimore City?
+```{r}
+balRoadNEI <- NEI[NEI$fips=="24510" & NEI$type=="ON-ROAD", ]
+
+yearEmissions <- aggregate(Emissions ~ year, balRoadNEI, sum)
+
+png("plot5.png")
+g <- ggplot(yearEmissions, aes(factor(year), Emissions))
+g <- g + geom_bar(stat="identity") +
+  xlab("Year") +
+  ylab(expression('Total Emission')) +
+  ggtitle('Total Emission from Motor Vehicles in Baltimore from 1999 to 2008')
+print(g)
+dev.off()
+```
+Compare emissions from motor vehicle sources in Baltimore City with emissions from motor vehicle sources in Los Angeles County, California (). Which city has seen greater changes over time in motor vehicle emissions?
+```{r}
+balLARoadNEI <- NEI[(NEI$fips=="24510"|NEI$fips=="06037") & NEI$type=="ON-ROAD",  ]
+yearLocEmissions <- aggregate(Emissions ~ year + fips, balLARoadNEI, sum)
+yearLocEmissions$fips[yearLocEmissions$fips=="24510"] <- "Baltimore"
+yearLocEmissions$fips[yearLocEmissions$fips=="06037"] <- "Los Angeles"
+
+png("plot6.png")
+g <- ggplot(yearLocEmissions, aes(factor(year), Emissions))
+g <- g + facet_grid(. ~ fips)
+g <- g + geom_bar(stat="identity")  +
+  xlab("Year") +
+  ylab(expression("Total Emission")) +
+  ggtitle("Total Emission from Motor Vehicles in Baltimore and Los Angeles, 1999-2008")
+print(g)
+dev.off()
+
+```
